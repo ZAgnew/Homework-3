@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Records</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Task Records</h1>
+    
+    <!-- Form to Create a New Task -->
+    <h3>Add New Task</h3>
+    <form id="taskForm">
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required>
+        </div>
+        <div class="form-group">
+            <label for="date">Date:</label>
+            <input type="date" id="date" required>
+        </div>
+        <div class="form-group">
+            <label for="completion">Completion:</label>
+            <select name="completion" id="completion" required>
+                <option value="Done">Done</option>
+                <option value="Not Done">Due</option>
+            </select>
+        </div>
+        <button type="submit">Add Task</button>
+    </form>
+
+    <table id="tasksTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Date</th>
+                <th>Completion</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Task data will be inserted here -->
+        </tbody>
+    </table>
+
+    <!-- Modal for Editing a Task Record -->
+    <div id="editModal" style="display:none;">
+        <h3>Edit Task</h3>
+        <form id="editTaskForm">
+            <div class="form-group">
+                <label for="editName">Name:</label>
+                <input type="text" id="editName" required>
+            </div>
+            <div class="form-group">
+                <label for="editDate">Date:</label>
+                <input type="date" id="editDate" required>
+            </div>
+            <div class="form-group">
+                <label for="editCompletion">Completion:</label>
+                <select name="completion" id="editCompletion" required>
+                    <option value="Done">Done</option>
+                    <option value="Not Done">Due</option>
+                </select>
+            </div>
+            <input type="hidden" id="editId">
+            <button type="submit">Save Changes</button>
+        </form>
+    </div>
+
+    <script>
+        // Function to fetch and display task records
+        async function fetchTaskRecords() {
+            try {
+                const response = await fetch('/tasks', { cache: 'no-store' });
+                const tasks = await response.json();
+                const tableBody = document.querySelector('#tasksTable tbody');
+                tableBody.innerHTML = '';
+
+                tasks.forEach(task => {
+                    const row = document.createElement('tr');
+
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = task.name;
+
+                    const dateCell = document.createElement('td');
+                    dateCell.textContent = task.date;
+
+                    const completionCell = document.createElement('td');
+                    completionCell.textContent = task.completion;
+
+                    const actionCell = document.createElement('td');
+                    const buttons = document.createElement('div');
+                    buttons.classList.add('buttons');
+
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Edit';
+                    editButton.onclick = () => showEditModal(task);
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.onclick = () => deleteTask(task.name);
+
+                    buttons.appendChild(editButton);
+                    buttons.appendChild(deleteButton);
+                    actionCell.appendChild(buttons);
+
+                    row.appendChild(nameCell);
+                    row.appendChild(dateCell);
+                    row.appendChild(completionCell);
+                    row.appendChild(actionCell);
+
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching task records:', error);
+            }
+        }
+
+        // Function to add a new task
+        document.getElementById('taskForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const date = document.getElementById('date').value;
+            const completion = document.getElementById('completion').value;
+
+            try {
+                await fetch('/tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, date, completion })
+                });
+                fetchTaskRecords();
+                e.target.reset();
+            } catch (error) {
+                console.error('Error adding task:', error);
+            }
+        });
+
+        // Function to show edit modal
+        function showEditModal(task) {
+            document.getElementById('editName').value = task.name;
+            document.getElementById('editDate').value = task.date;
+            document.getElementById('editCompletion').value = task.completion;
+            document.getElementById('editId').value = task._id;
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        // Function to edit a task
+        document.getElementById('editTaskForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editId').value;
+            const name = document.getElementById('editName').value;
+            const date = document.getElementById('editDate').value;
+            const completion = document.getElementById('editCompletion').value;
+
+            try {
+                await fetch(`/tasks/${name}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, date, completion })
+                });
+                document.getElementById('editModal').style.display = 'none';
+                fetchTaskRecords();
+            } catch (error) {
+                console.error('Error updating task:', error);
+            }
+        });
+
+        // Function to delete a task
+        
+        async function deleteTask(name) {
+            try {
+                await fetch(`/tasks/${name}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to delete task');
+                }
+                fetchTaskRecords();
+            } catch (error) {
+                console.error('Error deleting task:', error);
+            }
+        }
+
+async function deleteTask(name) {
+    if (confirm('Are you sure you want to delete this task?')) {
+        try {
+            const response = await fetch(`/tasks/${name}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete task');
+            }
+
+            alert('Task deleted successfully');
+            fetchTaskRecords(); // Refresh the list
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            alert('Error deleting task');
+        }
+    }
+}
+
+        // Fetch the task records when the page loads
+        window.onload = fetchTaskRecords;
+    </script>
+
+</body>
+</html>
